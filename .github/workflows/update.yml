@@ -1,0 +1,240 @@
+name: Update YTKACE SideStore Source
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest YTKACE release
+        id: release
+        run: |
+          curl -s \
+            https://api.github.com/repos/itzzace/YTKACE/releases/latest \
+            > release.json
+
+          IPA_URL=$(jq -r '
+            .assets[]
+            | select(.name | ascii_downcase | endswith(".ipa"))
+            | .browser_download_url
+          ' release.json | head -n 1)
+
+          IPA_NAME=$(jq -r '
+            .assets[]
+            | select(.name | ascii_downcase | endswith(".ipa"))
+            | .name
+          ' release.json | head -n 1)
+
+          RELEASE_DATE=$(jq -r '.published_at' release.json)
+          RELEASE_NOTES=$(jq -r '.body // "New YTKACE release"' release.json)
+
+          echo "ipa_url=$IPA_URL" >> "$GITHUB_OUTPUT"
+          echo "ipa_name=$IPA_NAME" >> "$GITHUB_OUTPUT"
+          echo "release_date=$RELEASE_DATE" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "release_notes<<EOF"
+            echo "$RELEASE_NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Make sure an IPA exists
+        run: |
+          if [ -z "${{ steps.release.outputs.ipa_url }}" ] || \
+             [ "${{ steps.release.outputs.ipa_url }}" = "null" ]; then
+            echo "No IPA found in latest YTKACE release."
+            exit 1
+          fi
+
+      - name: Download IPA
+        run: |
+          curl -L \
+            "${{ steps.release.outputs.ipa_url }}" \
+            -o YTKACE.ipa
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip libplist-utils
+
+      - name: Extract IPA information
+        id: ipa
+        run: |
+          rm -rf extracted
+          mkdir extracted
+          unzip -q YTKACE.ipa -d extracted
+
+          APP_DIR=$(find extracted/Payload -maxdepth 1 -type d -name "*.app" | head -n 1)
+
+          if [ -z "$APP_DIR" ]; then
+            echo "Could not locate app inside IPA."
+            exit 1
+          fi
+
+          INFO="$APP_DIR/Info.plist"
+
+          BUNDLE_ID=$(plistutil -i "$INFO" -f xml | \
+            python3 -c '
+          import plistlib,sys
+          p=plistlib.load(sys.stdin.buffer)
+          print(p["CFBundleIdentifier"])
+          ')
+
+          VERSION=$(plistutil -i "$INFO" -f xml | \
+            python3 -c '
+          import plistlib,sys
+          p=plistlib.load(sys.stdin.buffer)
+          print(p.get("CFBundleShortVersionString","1.0"))
+          ')
+
+          BUILD=$(plistutil -i "$INFO" -f xml | \
+            python3 -c '
+          import plistlib,sys
+          p=plistlib.load(sys.stdin.buffer)
+          print(p.get("CFBundleVersion","1"))
+          ')
+
+          APP_NAME=$(plistutil -i "$INFO" -f xml | \
+            python3 -c '
+          import plistlib,sys
+          p=plistlib.load(sys.stdin.buffer)
+          print(
+              p.get("CFBundleDisplayName")
+              or p.get("CFBundleName")
+              or "YTKACE"
+          )
+          ')
+
+          SIZE=$(stat -c%s YTKACE.ipa)
+
+          echo "bundle_id=$BUNDLE_ID" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SideStore source
+        env:
+          IPA_URL: ${{ steps.release.outputs.ipa_url }}
+          RELEASE_DATE: ${{ steps.release.outputs.release_date }}
+          RELEASE_NOTES: ${{ steps.release.outputs.release_notes }}
+          BUNDLE_ID: ${{ steps.ipa.outputs.bundle_id }}
+          VERSION: ${{ steps.ipa.outputs.version }}
+          BUILD: ${{ steps.ipa.outputs.build }}
+          APP_NAME: ${{ steps.ipa.outputs.app_name }}
+          SIZE: ${{ steps.ipa.outputs.size }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+
+          source_file = "source.json"
+
+          try:
+              with open(source_file, "r") as f:
+                  source = json.load(f)
+          except:
+              source = {}
+
+          source.setdefault("name", "YTKACE")
+          source.setdefault(
+              "subtitle",
+              "YTKACE releases from itzzace/YTKACE"
+          )
+          source.setdefault(
+              "description",
+              "Automatically updated YTKACE SideStore source."
+          )
+          source.setdefault(
+              "website",
+              "https://github.com/itzzace/YTKACE"
+          )
+          source.setdefault("apps", [])
+          source.setdefault("news", [])
+
+          bundle_id = os.environ["BUNDLE_ID"]
+
+          app = next(
+              (
+                  a for a in source["apps"]
+                  if a.get("bundleIdentifier") == bundle_id
+              ),
+              None
+          )
+
+          if app is None:
+              app = {
+                  "name": os.environ["APP_NAME"],
+                  "bundleIdentifier": bundle_id,
+                  "developerName": "itzzace",
+                  "subtitle": "YouTube with YTKACE",
+                  "localizedDescription":
+                      "YTKACE release distributed from the official GitHub repository.",
+                  "category": "entertainment",
+                  "versions": []
+              }
+
+              source["apps"].append(app)
+
+          new_version = {
+              "version": os.environ["VERSION"],
+              "buildVersion": os.environ["BUILD"],
+              "date": os.environ["RELEASE_DATE"],
+              "localizedDescription":
+                  os.environ["RELEASE_NOTES"][:4000],
+              "downloadURL": os.environ["IPA_URL"],
+              "size": int(os.environ["SIZE"])
+          }
+
+          versions = app.setdefault("versions", [])
+
+          versions = [
+              v for v in versions
+              if not (
+                  v.get("version") == new_version["version"]
+                  and
+                  v.get("buildVersion") == new_version["buildVersion"]
+              )
+          ]
+
+          versions.insert(0, new_version)
+
+          app["versions"] = versions
+
+          with open(source_file, "w") as f:
+              json.dump(source, f, indent=2, ensure_ascii=False)
+
+          print(
+              "Generated source for",
+              os.environ["APP_NAME"],
+              os.environ["VERSION"],
+              os.environ["BUILD"]
+          )
+          PY
+
+      - name: Commit updated source
+        run: |
+          rm -rf extracted YTKACE.ipa release.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add source.json
+
+          if git diff --cached --quiet; then
+            echo "Source already up to date."
+          else
+            git commit -m "Update YTKACE SideStore source"
+            git push
+          fi
