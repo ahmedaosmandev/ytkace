@@ -1,26 +1,43 @@
 {
   "name": "YTKACE",
   "subtitle": "YTKACE releases from itzzace/YTKACE",
-  "description": "Automatically updated YTKACE SideStore source.",
+  "description": "Automatically updated SideStore source for YTKACE.",
+  "iconURL": "https://github.com/itzzace.png?size=512",
   "website": "https://github.com/itzzace/YTKACE",
   "apps": [
     {
-      "name": "YouTube",
+      "name": "YTKACE",
       "bundleIdentifier": "com.google.ios.youtube",
       "developerName": "itzzace",
       "subtitle": "YouTube with YTKACE",
-      "localizedDescription": "YTKACE release distributed from the official GitHub repository.",
+      "localizedDescription": "YouTube with YTKACE, distributed from the official itzzace/YTKACE GitHub releases.",
+      "iconURL": "https://github.com/itzzace.png?size=512",
       "category": "entertainment",
       "versions": [
         {
           "version": "21.31.3",
           "buildVersion": "21.31.3",
           "date": "2026-08-07T02:03:53Z",
-          "localizedDescription": "**YTKACE v0.8.1**\nby @itzzace0\n\n**What's new:**\n• Search in the YTKACE section of YouTube's settings\n• Volume gesture can now use both sides of the player\n• The YTKACE section in YouTube's settings now has icons and MAIN / VIDEO / APP / ABOUT grouping, matching the main settings page\n• Version and device info at the bottom of the YTKACE section, same as the main settings page\n\n**Fixed:**\n• Fixed the YouTube logo flickering when Remove logo is enabled\n• Fixed downloads failing with \"YouTube requires stream authorization\" on some accounts\n• Fixed missing translations across settings page titles, section headers and descriptions, and the YTKACE rows in YouTube's settings",
+          "localizedDescription": "**YTKACE v0.8.1**\nby @itzzace0\n\n**What's new:**\n• Search in the YTKACE section of YouTube's settings\n• Volume gesture can now use both sides of the player\n• The YTKACE section in YouTube's settings now has icons and MAIN / VIDEO / APP / ABOUT grouping, matching the main settings page\n• Version and device info at the bottom of the YTKACE section, same as the main settings page\n\n**Fixed:**\n• Fixed the YouTube logo flickering when Remove logo is enabled\n• Fixed downloads failing with \"YouTube requires stream authorization\" on some accounts\n• Fixed missing translations across settings page titles, section headers and descriptions, and the YTKACE rows in YouTube's settings\n",
           "downloadURL": "https://github.com/itzzace/ytkace/releases/download/v0.8.1/YTKACE_0.8.1_YouTube_21.31.3.ipa",
-          "size": 129380596
+          "size": 129380596,
+          "minOSVersion": "16.0"
         }
-      ]
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSCameraUsageDescription": "This lets you create videos using the app.",
+          "NSUserTrackingUsageDescription": "To personalize ads and provide ad measurement, YouTube will link activity from this app with activity from non-Google apps and websites.",
+          "NSBluetoothPeripheralUsageDescription": "YouTube needs bluetooth access to scan for nearby Cast devices.",
+          "NSLocalNetworkUsageDescription": "Access to your network allows YouTube to discover and connect to devices such as your TV.",
+          "NSAppleMusicUsageDescription": "This lets you add your own audio files to your videos.",
+          "NSMicrophoneUsageDescription": "This lets you include audio with your videos and search using your voice.",
+          "NSLocationWhenInUseUsageDescription": "This enables local content discovery, improved recommendations, and enhanced search results.",
+          "NSContactsUsageDescription": "Your contacts will be sent to YouTube servers to help you find friends to share videos with.",
+          "NSPhotoLibraryUsageDescription": "This lets you upload media you've already created."
+        }
+      }
     }
   ],
   "news": []
