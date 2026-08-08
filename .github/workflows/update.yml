@@ -67,7 +67,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y unzip libplist-utils
 
-      - name: Extract IPA information
+            - name: Extract IPA information
         id: ipa
         run: |
           rm -rf extracted
@@ -83,45 +83,41 @@ jobs:
 
           INFO="$APP_DIR/Info.plist"
 
-          BUNDLE_ID=$(plistutil -i "$INFO" -f xml | \
-            python3 -c '
-          import plistlib,sys
-          p=plistlib.load(sys.stdin.buffer)
-          print(p["CFBundleIdentifier"])
-          ')
+          python3 - "$INFO" "$GITHUB_OUTPUT" <<'PY'
+          import plistlib
+          import sys
+          import os
 
-          VERSION=$(plistutil -i "$INFO" -f xml | \
-            python3 -c '
-          import plistlib,sys
-          p=plistlib.load(sys.stdin.buffer)
-          print(p.get("CFBundleShortVersionString","1.0"))
-          ')
+          info_path = sys.argv[1]
+          output_path = sys.argv[2]
 
-          BUILD=$(plistutil -i "$INFO" -f xml | \
-            python3 -c '
-          import plistlib,sys
-          p=plistlib.load(sys.stdin.buffer)
-          print(p.get("CFBundleVersion","1"))
-          ')
+          with open(info_path, "rb") as f:
+              plist = plistlib.load(f)
 
-          APP_NAME=$(plistutil -i "$INFO" -f xml | \
-            python3 -c '
-          import plistlib,sys
-          p=plistlib.load(sys.stdin.buffer)
-          print(
-              p.get("CFBundleDisplayName")
-              or p.get("CFBundleName")
+          bundle_id = plist["CFBundleIdentifier"]
+          version = plist.get("CFBundleShortVersionString", "1.0")
+          build = plist.get("CFBundleVersion", "1")
+          app_name = (
+              plist.get("CFBundleDisplayName")
+              or plist.get("CFBundleName")
               or "YTKACE"
           )
-          ')
 
-          SIZE=$(stat -c%s YTKACE.ipa)
+          ipa_size = os.path.getsize("YTKACE.ipa")
 
-          echo "bundle_id=$BUNDLE_ID" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
-          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
-          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          print(f"App Name: {app_name}")
+          print(f"Bundle ID: {bundle_id}")
+          print(f"Version: {version}")
+          print(f"Build: {build}")
+          print(f"IPA Size: {ipa_size}")
+
+          with open(output_path, "a") as out:
+              out.write(f"bundle_id={bundle_id}\n")
+              out.write(f"version={version}\n")
+              out.write(f"build={build}\n")
+              out.write(f"app_name={app_name}\n")
+              out.write(f"size={ipa_size}\n")
+          PY
 
       - name: Generate SideStore source
         env:
