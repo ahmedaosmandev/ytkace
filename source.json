@@ -1,1 +1,27 @@
-{}
+{
+  "name": "YTKACE",
+  "subtitle": "YTKACE releases from itzzace/YTKACE",
+  "description": "Automatically updated YTKACE SideStore source.",
+  "website": "https://github.com/itzzace/YTKACE",
+  "apps": [
+    {
+      "name": "YouTube",
+      "bundleIdentifier": "com.google.ios.youtube",
+      "developerName": "itzzace",
+      "subtitle": "YouTube with YTKACE",
+      "localizedDescription": "YTKACE release distributed from the official GitHub repository.",
+      "category": "entertainment",
+      "versions": [
+        {
+          "version": "21.31.3",
+          "buildVersion": "21.31.3",
+          "date": "2026-08-07T02:03:53Z",
+          "localizedDescription": "**YTKACE v0.8.1**\nby @itzzace0\n\n**What's new:**\n• Search in the YTKACE section of YouTube's settings\n• Volume gesture can now use both sides of the player\n• The YTKACE section in YouTube's settings now has icons and MAIN / VIDEO / APP / ABOUT grouping, matching the main settings page\n• Version and device info at the bottom of the YTKACE section, same as the main settings page\n\n**Fixed:**\n• Fixed the YouTube logo flickering when Remove logo is enabled\n• Fixed downloads failing with \"YouTube requires stream authorization\" on some accounts\n• Fixed missing translations across settings page titles, section headers and descriptions, and the YTKACE rows in YouTube's settings",
+          "downloadURL": "https://github.com/itzzace/ytkace/releases/download/v0.8.1/YTKACE_0.8.1_YouTube_21.31.3.ipa",
+          "size": 129380596
+        }
+      ]
+    }
+  ],
+  "news": []
+}
