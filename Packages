@@ -1,0 +1,36 @@
+Package: com.itzzace.ytkace
+Version: 0.8.1
+Architecture: iphoneos-arm64
+Maintainer: itzzace
+Installed-Size: 2460
+Depends: mobilesubstrate | ellekit, firmware (>= 16.0)
+Filename: debs/com.itzzace.ytkace_0.8.1_rootless.deb
+Size: 762036
+MD5sum: e36daea81cb7895ca2483006fef416fd
+SHA1: 57074ba8da541460deacd1013e68fb9547a5f6b8
+SHA256: e0d9452f05a9efac8eb5687740e54376b36ef483540edf70f42e8f04536e90ff
+Section: Tweaks
+Homepage: https://github.com/itzzace/ytkace
+Description: Open-source YouTube enhancement with downloads, SponsorBlock, background playback and interface controls
+Tag: role::enduser
+Author: itzzace
+Name: YTKACE
+
+Package: com.itzzace.ytkace
+Version: 0.8.1
+Architecture: iphoneos-arm64e
+Maintainer: itzzace
+Installed-Size: 2460
+Depends: mobilesubstrate | ellekit, firmware (>= 16.0)
+Filename: debs/com.itzzace.ytkace_0.8.1_roothide.deb
+Size: 761714
+MD5sum: 4f62532d5d074a380245d68f5567a70d
+SHA1: b99ef11b099e337a1dcb68db60bd1d9c3d89c598
+SHA256: 1e684203b2c08bfcba2e556a266207fb9ab7f961864cc7bd943a04ba9c3bcefa
+Section: Tweaks
+Homepage: https://github.com/itzzace/ytkace
+Description: Open-source YouTube enhancement with downloads, SponsorBlock, background playback and interface controls
+Tag: role::enduser
+Author: itzzace
+Name: YTKACE
+
