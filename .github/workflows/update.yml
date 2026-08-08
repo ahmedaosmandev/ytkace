@@ -10,227 +10,577 @@ permissions:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Get latest YTKACE release
-        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -s \
-            https://api.github.com/repos/itzzace/YTKACE/releases/latest \
-            > release.json
+          curl -fsSL \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/itzzace/YTKACE/releases/latest" \
+            -o release.json
 
-          IPA_URL=$(jq -r '
-            .assets[]
-            | select(.name | ascii_downcase | endswith(".ipa"))
-            | .browser_download_url
-          ' release.json | head -n 1)
+          python3 <<'PY'
+          import json
+          import sys
 
-          IPA_NAME=$(jq -r '
-            .assets[]
-            | select(.name | ascii_downcase | endswith(".ipa"))
-            | .name
-          ' release.json | head -n 1)
+          with open("release.json", "r", encoding="utf-8") as f:
+              release = json.load(f)
 
-          RELEASE_DATE=$(jq -r '.published_at' release.json)
-          RELEASE_NOTES=$(jq -r '.body // "New YTKACE release"' release.json)
+          ipa_assets = [
+              asset
+              for asset in release.get("assets", [])
+              if asset.get("name", "").lower().endswith(".ipa")
+          ]
 
-          echo "ipa_url=$IPA_URL" >> "$GITHUB_OUTPUT"
-          echo "ipa_name=$IPA_NAME" >> "$GITHUB_OUTPUT"
-          echo "release_date=$RELEASE_DATE" >> "$GITHUB_OUTPUT"
+          if not ipa_assets:
+              print("No IPA found in the latest YTKACE release.")
+              sys.exit(1)
 
-          {
-            echo "release_notes<<EOF"
-            echo "$RELEASE_NOTES"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          asset = ipa_assets[0]
 
-      - name: Make sure an IPA exists
-        run: |
-          if [ -z "${{ steps.release.outputs.ipa_url }}" ] || \
-             [ "${{ steps.release.outputs.ipa_url }}" = "null" ]; then
-            echo "No IPA found in latest YTKACE release."
-            exit 1
-          fi
+          metadata = {
+              "ipa_url": asset["browser_download_url"],
+              "ipa_name": asset["name"],
+              "release_date": release.get("published_at", ""),
+              "release_notes": release.get("body") or "New YTKACE release",
+              "release_tag": release.get("tag_name", "")
+          }
+
+          with open("release_meta.json", "w", encoding="utf-8") as f:
+              json.dump(metadata, f, indent=2)
+
+          print("Found IPA:", asset["name"])
+          print("Download URL:", asset["browser_download_url"])
+          print("Release:", release.get("tag_name"))
+          PY
 
       - name: Download IPA
         run: |
-          curl -L \
-            "${{ steps.release.outputs.ipa_url }}" \
-            -o YTKACE.ipa
+          IPA_URL=$(python3 -c \
+            'import json; print(json.load(open("release_meta.json"))["ipa_url"])')
 
-      - name: Install tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip libplist-utils
+          echo "Downloading:"
+          echo "$IPA_URL"
 
-      - name: Extract IPA information
-        id: ipa
+          curl -fL "$IPA_URL" -o YTKACE.ipa
+
+          test -s YTKACE.ipa
+
+          echo "Downloaded IPA:"
+          ls -lh YTKACE.ipa
+
+      - name: Extract IPA
         run: |
           rm -rf extracted
           mkdir extracted
+
           unzip -q YTKACE.ipa -d extracted
 
-          APP_DIR=$(find extracted/Payload -maxdepth 1 -type d -name "*.app" | head -n 1)
+          APP_DIR=$(find extracted/Payload \
+            -maxdepth 1 \
+            -type d \
+            -name "*.app" \
+            | head -n 1)
 
           if [ -z "$APP_DIR" ]; then
-            echo "Could not locate app inside IPA."
+            echo "Could not locate .app inside IPA."
             exit 1
           fi
 
-          INFO="$APP_DIR/Info.plist"
+          echo "Main app:"
+          echo "$APP_DIR"
 
-          python3 - "$INFO" "$GITHUB_OUTPUT" <<'PY'
+      - name: Extract entitlements
+        run: |
+          rm -rf entitlements
+          mkdir entitlements
+
+          COUNT=0
+
+          while IFS= read -r -d '' BUNDLE; do
+            COUNT=$((COUNT + 1))
+
+            echo "Reading entitlements from:"
+            echo "$BUNDLE"
+
+            codesign -d \
+              --entitlements :- \
+              "$BUNDLE" \
+              > "entitlements/$COUNT.plist" \
+              2>/dev/null || true
+
+            if [ ! -s "entitlements/$COUNT.plist" ]; then
+              rm -f "entitlements/$COUNT.plist"
+            fi
+
+          done < <(
+            find extracted/Payload \
+              -type d \
+              \( -name "*.app" -o -name "*.appex" \) \
+              -print0
+          )
+
+          echo
+          echo "Entitlement plist files found:"
+          ls -la entitlements || true
+
+      - name: Extract IPA metadata and permissions
+        run: |
+          python3 <<'PY'
+          import glob
+          import json
+          import os
           import plistlib
           import sys
-          import os
 
-          info_path = sys.argv[1]
-          output_path = sys.argv[2]
+          # --------------------------------------------------
+          # Find main application
+          # --------------------------------------------------
+
+          apps = glob.glob("extracted/Payload/*.app")
+
+          if not apps:
+              print("No main .app found.")
+              sys.exit(1)
+
+          app_dir = apps[0]
+          info_path = os.path.join(app_dir, "Info.plist")
 
           with open(info_path, "rb") as f:
-              plist = plistlib.load(f)
+              info = plistlib.load(f)
 
-          bundle_id = plist["CFBundleIdentifier"]
-          version = plist.get("CFBundleShortVersionString", "1.0")
-          build = plist.get("CFBundleVersion", "1")
+          bundle_id = info.get("CFBundleIdentifier")
+
+          if not bundle_id:
+              print("CFBundleIdentifier is missing.")
+              sys.exit(1)
+
+          version = str(
+              info.get("CFBundleShortVersionString", "1.0")
+          )
+
+          build = str(
+              info.get("CFBundleVersion", "1")
+          )
+
           app_name = (
-              plist.get("CFBundleDisplayName")
-              or plist.get("CFBundleName")
+              info.get("CFBundleDisplayName")
+              or info.get("CFBundleName")
               or "YTKACE"
           )
 
-          ipa_size = os.path.getsize("YTKACE.ipa")
+          minimum_os = info.get("MinimumOSVersion")
 
-          print(f"App Name: {app_name}")
-          print(f"Bundle ID: {bundle_id}")
-          print(f"Version: {version}")
-          print(f"Build: {build}")
-          print(f"IPA Size: {ipa_size}")
+          # --------------------------------------------------
+          # Privacy permissions
+          # --------------------------------------------------
 
-          with open(output_path, "a") as out:
-              out.write(f"bundle_id={bundle_id}\n")
-              out.write(f"version={version}\n")
-              out.write(f"build={build}\n")
-              out.write(f"app_name={app_name}\n")
-              out.write(f"size={ipa_size}\n")
+          privacy = {}
+
+          plist_paths = []
+
+          for root, dirs, files in os.walk("extracted/Payload"):
+              if "Info.plist" in files:
+                  plist_paths.append(
+                      os.path.join(root, "Info.plist")
+                  )
+
+          for plist_path in plist_paths:
+              try:
+                  with open(plist_path, "rb") as f:
+                      plist = plistlib.load(f)
+              except Exception:
+                  continue
+
+              for key, value in plist.items():
+                  if (
+                      isinstance(key, str)
+                      and key.endswith("UsageDescription")
+                  ):
+                      if isinstance(value, str):
+                          privacy[key] = value
+                      else:
+                          privacy[key] = str(value)
+
+          # --------------------------------------------------
+          # Signed entitlements
+          # --------------------------------------------------
+
+          excluded_entitlements = {
+              "application-identifier",
+              "com.apple.developer.team-identifier",
+          }
+
+          entitlement_names = set()
+
+          for entitlement_file in glob.glob(
+              "entitlements/*.plist"
+          ):
+              try:
+                  with open(entitlement_file, "rb") as f:
+                      data = plistlib.load(f)
+              except Exception as exc:
+                  print(
+                      "Skipping unreadable entitlements:",
+                      entitlement_file,
+                      exc,
+                  )
+                  continue
+
+              if not isinstance(data, dict):
+                  continue
+
+              for key in data:
+                  if key not in excluded_entitlements:
+                      entitlement_names.add(key)
+
+          entitlements = sorted(entitlement_names)
+
+          # --------------------------------------------------
+          # IPA metadata
+          # --------------------------------------------------
+
+          size = os.path.getsize("YTKACE.ipa")
+
+          metadata = {
+              "name": str(app_name),
+              "bundleIdentifier": str(bundle_id),
+              "version": version,
+              "buildVersion": build,
+              "size": size,
+              "minOSVersion": (
+                  str(minimum_os)
+                  if minimum_os is not None
+                  else None
+              ),
+              "appPermissions": {
+                  "entitlements": entitlements,
+                  "privacy": privacy,
+              },
+          }
+
+          with open(
+              "ipa_meta.json",
+              "w",
+              encoding="utf-8",
+          ) as f:
+              json.dump(
+                  metadata,
+                  f,
+                  indent=2,
+                  ensure_ascii=False,
+              )
+
+          print()
+          print("Extracted IPA information")
+          print("-------------------------")
+          print("App name:", app_name)
+          print("Bundle ID:", bundle_id)
+          print("Version:", version)
+          print("Build:", build)
+          print("Minimum iOS:", minimum_os)
+          print("IPA size:", size)
+
+          print()
+          print("Entitlements:")
+          for entitlement in entitlements:
+              print(" -", entitlement)
+
+          print()
+          print("Privacy permissions:")
+          for key in sorted(privacy):
+              print(" -", key)
           PY
 
       - name: Generate SideStore source
-        env:
-          IPA_URL: ${{ steps.release.outputs.ipa_url }}
-          RELEASE_DATE: ${{ steps.release.outputs.release_date }}
-          RELEASE_NOTES: ${{ steps.release.outputs.release_notes }}
-          BUNDLE_ID: ${{ steps.ipa.outputs.bundle_id }}
-          VERSION: ${{ steps.ipa.outputs.version }}
-          BUILD: ${{ steps.ipa.outputs.build }}
-          APP_NAME: ${{ steps.ipa.outputs.app_name }}
-          SIZE: ${{ steps.ipa.outputs.size }}
         run: |
           python3 <<'PY'
           import json
           import os
 
-          source_file = "source.json"
+          SOURCE_FILE = "source.json"
 
+          with open(
+              "ipa_meta.json",
+              "r",
+              encoding="utf-8",
+          ) as f:
+              ipa = json.load(f)
+
+          with open(
+              "release_meta.json",
+              "r",
+              encoding="utf-8",
+          ) as f:
+              release = json.load(f)
+
+          # Try to preserve previous version history.
           try:
-              with open(source_file, "r") as f:
-                  source = json.load(f)
-          except:
-              source = {}
+              with open(
+                  SOURCE_FILE,
+                  "r",
+                  encoding="utf-8",
+              ) as f:
+                  old_source = json.load(f)
+          except Exception:
+              old_source = {}
 
-          source.setdefault("name", "YTKACE")
-          source.setdefault(
-              "subtitle",
-              "YTKACE releases from itzzace/YTKACE"
-          )
-          source.setdefault(
-              "description",
-              "Automatically updated YTKACE SideStore source."
-          )
-          source.setdefault(
-              "website",
-              "https://github.com/itzzace/YTKACE"
-          )
-          source.setdefault("apps", [])
-          source.setdefault("news", [])
+          old_apps = old_source.get("apps", [])
 
-          bundle_id = os.environ["BUNDLE_ID"]
-
-          app = next(
+          old_app = next(
               (
-                  a for a in source["apps"]
-                  if a.get("bundleIdentifier") == bundle_id
+                  app
+                  for app in old_apps
+                  if app.get("bundleIdentifier")
+                  == ipa["bundleIdentifier"]
               ),
-              None
+              None,
           )
 
-          if app is None:
-              app = {
-                  "name": os.environ["APP_NAME"],
-                  "bundleIdentifier": bundle_id,
-                  "developerName": "itzzace",
-                  "subtitle": "YouTube with YTKACE",
-                  "localizedDescription":
-                      "YTKACE release distributed from the official GitHub repository.",
-                  "category": "entertainment",
-                  "versions": []
-              }
+          old_versions = []
 
-              source["apps"].append(app)
+          if old_app:
+              old_versions = old_app.get(
+                  "versions",
+                  [],
+              )
+
+          # Required app icon.
+          #
+          # This is a stable public image URL.
+          # It does not need to be inside the IPA.
+          icon_url = (
+              "https://github.com/itzzace.png?size=512"
+          )
 
           new_version = {
-              "version": os.environ["VERSION"],
-              "buildVersion": os.environ["BUILD"],
-              "date": os.environ["RELEASE_DATE"],
+              "version": ipa["version"],
+              "buildVersion": ipa["buildVersion"],
+              "date": release["release_date"],
               "localizedDescription":
-                  os.environ["RELEASE_NOTES"][:4000],
-              "downloadURL": os.environ["IPA_URL"],
-              "size": int(os.environ["SIZE"])
+                  release["release_notes"][:4000],
+              "downloadURL": release["ipa_url"],
+              "size": ipa["size"],
           }
 
-          versions = app.setdefault("versions", [])
+          if ipa.get("minOSVersion"):
+              new_version["minOSVersion"] = (
+                  ipa["minOSVersion"]
+              )
 
+          # Remove duplicate of the version we're adding.
           versions = [
-              v for v in versions
+              version
+              for version in old_versions
               if not (
-                  v.get("version") == new_version["version"]
+                  version.get("version")
+                  == new_version["version"]
                   and
-                  v.get("buildVersion") == new_version["buildVersion"]
+                  version.get("buildVersion")
+                  == new_version["buildVersion"]
               )
           ]
 
+          # AltStore/SideStore treats index 0 as newest.
           versions.insert(0, new_version)
 
-          app["versions"] = versions
+          app = {
+              "name": "YTKACE",
+              "bundleIdentifier":
+                  ipa["bundleIdentifier"],
+              "developerName": "itzzace",
+              "subtitle": "YouTube with YTKACE",
+              "localizedDescription":
+                  "YouTube with YTKACE, distributed from "
+                  "the official itzzace/YTKACE GitHub releases.",
+              "iconURL": icon_url,
+              "category": "entertainment",
+              "versions": versions,
+              "appPermissions":
+                  ipa["appPermissions"],
+          }
 
-          with open(source_file, "w") as f:
-              json.dump(source, f, indent=2, ensure_ascii=False)
+          source = {
+              "name": "YTKACE",
+              "subtitle":
+                  "YTKACE releases from itzzace/YTKACE",
+              "description":
+                  "Automatically updated SideStore source "
+                  "for YTKACE.",
+              "iconURL": icon_url,
+              "website":
+                  "https://github.com/itzzace/YTKACE",
+              "apps": [app],
+              "news": [],
+          }
 
+          with open(
+              SOURCE_FILE,
+              "w",
+              encoding="utf-8",
+          ) as f:
+              json.dump(
+                  source,
+                  f,
+                  indent=2,
+                  ensure_ascii=False,
+              )
+
+          print()
+          print("Generated source.json")
+          print("---------------------")
           print(
-              "Generated source for",
-              os.environ["APP_NAME"],
-              os.environ["VERSION"],
-              os.environ["BUILD"]
+              "Version:",
+              new_version["version"],
+          )
+          print(
+              "Build:",
+              new_version["buildVersion"],
+          )
+          print(
+              "Bundle ID:",
+              ipa["bundleIdentifier"],
+          )
+          print(
+              "Entitlements:",
+              len(
+                  ipa["appPermissions"][
+                      "entitlements"
+                  ]
+              ),
+          )
+          print(
+              "Privacy permissions:",
+              len(
+                  ipa["appPermissions"][
+                      "privacy"
+                  ]
+              ),
           )
           PY
 
+      - name: Validate source JSON
+        run: |
+          python3 <<'PY'
+          import json
+          import sys
+
+          with open(
+              "source.json",
+              "r",
+              encoding="utf-8",
+          ) as f:
+              source = json.load(f)
+
+          required_source = [
+              "name",
+              "apps",
+              "news",
+          ]
+
+          for key in required_source:
+              if key not in source:
+                  print(
+                      f"Missing source key: {key}"
+                  )
+                  sys.exit(1)
+
+          if not source["apps"]:
+              print("Source contains no apps.")
+              sys.exit(1)
+
+          app = source["apps"][0]
+
+          required_app = [
+              "name",
+              "bundleIdentifier",
+              "developerName",
+              "localizedDescription",
+              "iconURL",
+              "versions",
+              "appPermissions",
+          ]
+
+          for key in required_app:
+              if key not in app:
+                  print(
+                      f"Missing app key: {key}"
+                  )
+                  sys.exit(1)
+
+          permissions = app["appPermissions"]
+
+          if "entitlements" not in permissions:
+              print(
+                  "Missing appPermissions.entitlements"
+              )
+              sys.exit(1)
+
+          if "privacy" not in permissions:
+              print(
+                  "Missing appPermissions.privacy"
+              )
+              sys.exit(1)
+
+          if not app["versions"]:
+              print("App contains no versions.")
+              sys.exit(1)
+
+          version = app["versions"][0]
+
+          required_version = [
+              "version",
+              "buildVersion",
+              "date",
+              "downloadURL",
+              "size",
+          ]
+
+          for key in required_version:
+              if key not in version:
+                  print(
+                      f"Missing version key: {key}"
+                  )
+                  sys.exit(1)
+
+          print("source.json passed validation.")
+          PY
+
+      - name: Show generated source
+        run: |
+          cat source.json
+
       - name: Commit updated source
         run: |
-          rm -rf extracted YTKACE.ipa release.json
+          rm -rf extracted
+          rm -rf entitlements
+          rm -f YTKACE.ipa
+          rm -f release.json
+          rm -f release_meta.json
+          rm -f ipa_meta.json
 
-          git config user.name "github-actions[bot]"
-          git config user.email \
+          git config \
+            user.name \
+            "github-actions[bot]"
+
+          git config \
+            user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add source.json
 
           if git diff --cached --quiet; then
-            echo "Source already up to date."
+            echo "Source is already up to date."
           else
-            git commit -m "Update YTKACE SideStore source"
+            git commit \
+              -m "Update YTKACE SideStore source"
+
             git push
           fi
