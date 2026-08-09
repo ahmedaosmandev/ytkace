@@ -17,10 +17,10 @@
         {
           "version": "21.31.3",
           "buildVersion": "21.31.3",
-          "date": "2026-08-07T02:03:53Z",
-          "localizedDescription": "**YTKACE v0.8.1**\nby @itzzace0\n\n**What's new:**\n• Search in the YTKACE section of YouTube's settings\n• Volume gesture can now use both sides of the player\n• The YTKACE section in YouTube's settings now has icons and MAIN / VIDEO / APP / ABOUT grouping, matching the main settings page\n• Version and device info at the bottom of the YTKACE section, same as the main settings page\n\n**Fixed:**\n• Fixed the YouTube logo flickering when Remove logo is enabled\n• Fixed downloads failing with \"YouTube requires stream authorization\" on some accounts\n• Fixed missing translations across settings page titles, section headers and descriptions, and the YTKACE rows in YouTube's settings\n",
-          "downloadURL": "https://github.com/itzzace/ytkace/releases/download/v0.8.1/YTKACE_0.8.1_YouTube_21.31.3.ipa",
-          "size": 129380596,
+          "date": "2026-08-08T19:17:28Z",
+          "localizedDescription": "**Jailbreak repo:** `https://itzzace.github.io/ytkace/`\r\nRootless and roothide packages, plus a page with an Add to Sileo button.\r\n\r\n**What's New**\r\n- Sleep timer button in the player overlay, using YouTube's own menu and status bar. End of video shows the remaining video time and stops playback when it runs out.\r\n- Remove Frosted Tab Bar.\r\n- Remove Products now covers the feed, the player and Shorts under a single toggle.\r\n\r\n**Fixed**\r\n- Hide Cast doing nothing when YouTube's language wasn't English.\r\n- Download button misaligned in the player overlay in non-English languages.\r\n",
+          "downloadURL": "https://github.com/itzzace/ytkace/releases/download/v0.8.2/YTKACE_0.8.2_YouTube_21.31.3.ipa",
+          "size": 129394143,
           "minOSVersion": "16.0"
         }
       ],
