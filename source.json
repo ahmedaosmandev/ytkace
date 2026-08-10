@@ -15,6 +15,15 @@
       "category": "entertainment",
       "versions": [
         {
+          "version": "21.32.4",
+          "buildVersion": "21.32.4",
+          "date": "2026-08-09T18:52:15Z",
+          "localizedDescription": "**YTKACE v0.8.3**\nby @itzzace0\n\n**What's new:**\n• Updated for YouTube 21.32.4\n• Added Japanese localization\n• Expanded localization across all 15 supported languages\n\n**Fixed:**\n• Improved Cast discovery and behavior after relaunching YouTube\n• Removed expensive Cast scanning that caused launch and feed lag\n• Reworked ad filtering for smoother feed scrolling\n• Reduced unnecessary playback processing and battery usage\n• Stopped SponsorBlock processing when the feature is disabled\n• Fixed missing translations throughout settings, downloads, players, and menus\n",
+          "downloadURL": "https://github.com/itzzace/ytkace/releases/download/v0.8.3/YTKACE_0.8.3_YouTube_21.32.4.ipa",
+          "size": 131837284,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "21.31.3",
           "buildVersion": "21.31.3",
           "date": "2026-08-08T19:17:28Z",
