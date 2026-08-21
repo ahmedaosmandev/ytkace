@@ -15,6 +15,15 @@
       "category": "entertainment",
       "versions": [
         {
+          "version": "21.33.5",
+          "buildVersion": "21.33.5",
+          "date": "2026-08-21T16:39:12Z",
+          "localizedDescription": "by @itzzace0\n\n**What's new:**\n- Added support for YouTube 21.33.5\n- Clear Cache now reports how much space was freed\n- Hidden action buttons now reflow on iPhone so the row stays filled\n\n**Fixed:**\n- Fixed Documents & Data growing over time from leftover download files\n- Fixed Clear Cache leaving temporary download data behind\n- Fixed hiding action buttons only working when YouTube is set to English\n- Fixed hiding Like or Dislike removing both buttons\n- Fixed the action bar collapsing or reordering after hiding buttons\n- Fixed Remove Community Posts leaving a black space in the feed\n- Fixed Shorts downloads failing with \"No active Short was found\"\n- Fixed Shorts downloads sometimes fetching the wrong video\n- Fixed SponsorBlock markers not resizing when entering fullscreen\n",
+          "downloadURL": "https://github.com/itzzace/ytkace/releases/download/v0.8.5/YTKACE_0.8.5_YouTube_21.33.5.ipa",
+          "size": 132472455,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "21.32.4",
           "buildVersion": "21.32.4",
           "date": "2026-08-18T15:55:33Z",
