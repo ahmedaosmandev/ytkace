@@ -15,6 +15,15 @@
       "category": "entertainment",
       "versions": [
         {
+          "version": "21.36.6",
+          "buildVersion": "21.36.6",
+          "date": "2026-09-12T18:12:13Z",
+          "localizedDescription": "by @itzzace0\n\nWhat's new:\n• Updated for YouTube 21.36.6\n• Added a toggle to remove the Save button from Shorts\n\nFixed:\n• Fixed the feed lagging while scrolling with Remove Shorts, Products, Mixes or Community Posts on\n• Fixed the You tab moving to the end of the tab bar after changing other tabs\n• Fixed hold to speed staying stuck at the held speed after letting go\n• Fixed the Save button in Shorts overlapping the other buttons\n• Fixed Block Premium Prompts stopping community post images from opening\n• Fixed Clear Cache saying there was nothing to clear while YouTube's video cache kept growing\n\nYouTube 21.36.6 requires iOS 17, so there are two IPAs:\n• `YTKACE_0.9.3_YouTube_21.36.6.ipa` for iOS 17 and newer\n• `YTKACE_0.9.3_YouTube_iOS16_21.33.6.ipa` for iOS 16\n",
+          "downloadURL": "https://github.com/itzzace/ytkace/releases/download/v0.9.3/YTKACE_0.9.3_YouTube_21.36.6.ipa",
+          "size": 134780934,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "21.35.3",
           "buildVersion": "21.35.3",
           "date": "2026-08-31T18:20:20Z",
